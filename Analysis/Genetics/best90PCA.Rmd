@@ -1,0 +1,139 @@
+---
+title: "2bRAD Broodstock PCA best90"
+output: html_notebook
+---
+```{r,include=F}
+library("ggplot2") #graphing
+library("reshape2") #formatting data frames for graphing
+library("adegenet") #inputting genetic data from structure, PCA, DAPC
+#library("pegas")
+#library("hierfstat")
+setwd("~/Projects/PS_CommonG/Analysis/2bRAD/")
+```
+Creating genind objects from .str files using adegenet.
+```{r}
+infile = "Inputs/b90finalNP-m75.str"
+nloci = 945
+nind = 91
+gen <- read.structure(infile, n.ind=nind,n.loc=nloci,onerowperind=FALSE,col.lab=1,col.pop=2,row.marknames=1, ask=FALSE)
+#Write file with allele counts per individual for OutFLANK
+write.table(gen@tab, file = "PCA/m75.tab",sep = "\t",row.names = T,col.names = T,quote = F )
+gen<- gen[,loc=which(isPoly(gen,by="locus"))]
+```
+```{r}
+notpoly <- which(!isPoly(gen,by="locus"))
+```
+
+Converting population names from integers:
+```{r}
+names = indNames(gen)
+pops = as.character(gen@pop)
+for(i in 1:length(names)){
+    pops[i] <- substr(unlist(strsplit(names[i],"-"))[1],1,2)
+}
+gen@pop <- as.factor(pops)
+```
+Filling in NA values by drawing from the overall allele frequency.
+```{r}
+NA.afDraw<- function(ind){
+  ind.mat <- ind@tab
+  new.mat <- ind.mat
+  af = colSums(ind.mat[,seq(1,ncol(ind.mat)-1,2)],na.rm = TRUE)/
+      (2*apply(ind.mat[,seq(1,ncol(ind.mat)-1,2)],2,function(x) sum(!is.na(x))))
+  af.Draw <- function(geno, af){
+     new <- function(geno,af){
+        if(is.na(geno)){
+        newA = rbinom(1,2,af)
+        }
+        else {newA <- geno}
+        return(newA)
+   }
+  new.row <- mapply(geno,af,FUN = new)
+  return(new.row)}
+  
+  new.mat[,seq(1,ncol(ind.mat)-1,2)] <- t(apply(ind.mat[,seq(1,ncol(ind.mat)-1,2)],1,af.Draw,af))
+  new.mat[,seq(2,ncol(ind.mat),2)] <- 2-new.mat[,seq(1,ncol(ind.mat)-1,2)]
+  new.ind <- ind
+  new.ind@tab <- new.mat
+  return(new.ind)
+}
+```
+```{r}
+gen.NA <- NA.afDraw(gen)
+```
+Make PCA
+```{r}
+pca.gen.na <- dudi.pca(gen.NA,cent=TRUE,scale=TRUE,scannf = FALSE,nf=10)
+```
+```{r}
+col8 <-  c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+par(mfrow=c(2,2))
+s.class(pca.gen.na$li, gen.NA@pop,xax=1,yax=2, sub = "PC 1-2, 94 individuals, 1,103 SNPs",possub = "topleft",col=transp(col8,.6), axesell=FALSE,cstar=0, cpoint=3, grid=FALSE, cellipse = 0)
+add.scatter.eig(pca.gen.na$eig[1:20],nf=10,xax=1,yax=2, "bottomleft")
+s.class(pca.gen.na$li, gen.NA@pop,xax=1,yax=3, sub = "PC 1-3, 94 individuals, 1,013 SNPs",possub = "topleft",col=transp(col8,.6), axesell=FALSE,cstar=0, cpoint=3, grid=FALSE, cellipse = 0)
+s.class(pca.gen.na$li, gen.NA@pop,xax=1,yax=4, sub = "PC 1-4, 94 individuals, 1,013 SNPs",possub = "topleft",col=transp(col8,.6), axesell=FALSE,cstar=0, cpoint=3, grid=FALSE, cellipse = 0)
+s.class(pca.gen.na$li, gen.NA@pop,xax=1,yax=5, sub = "PC 1-5, 94 individuals, 1,013 SNPs",possub = "topleft",col=transp(col8,.6), axesell=FALSE,cstar=0, cpoint=3, grid=FALSE, cellipse = 0)
+```
+```{r}
+#Get percent contribution of each PC for m50x65.maf025
+eig.perc <- 100*pca.gen.na$eig/sum(pca.gen.na$eig)
+head(eig.perc)
+```
+NF5-19 is the NF outlier
+```{r}
+s.label(pca.gen.na$li,clab = 1)
+```
+```{r}
+infile = "Inputs/b90finalNP-m75maf025.str"
+nloci = 711
+nind = 91
+gen.maf <- read.structure(infile, n.ind=nind,n.loc=nloci,onerowperind=FALSE,col.lab=1,col.pop=2,row.marknames=1, ask=FALSE)
+#Write file with allele counts per individual for OutFLANK
+write.table(gen.maf@tab, file = "PCA/m75maf025.tab",sep = "\t",row.names = T,col.names = T,quote = F )
+```
+Converting population names from integers:
+```{r}
+names = indNames(gen.maf)
+pops = as.character(gen.maf@pop)
+for(i in 1:length(names)){
+    pops[i] <- substr(unlist(strsplit(names[i],"-"))[1],1,2)
+}
+gen.maf@pop <- as.factor(pops)
+```
+```{r}
+gen.maf.NA <- NA.afDraw(gen.maf)
+```
+Make PCA
+```{r}
+pca.genmaf.na <- dudi.pca(gen.maf.NA,cent=TRUE,scale=TRUE,scannf = FALSE,nf=10)
+```
+```{r}
+col8 <-  c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+par(mfrow=c(2,2))
+s.class(pca.genmaf.na$li, gen.maf.NA@pop,xax=1,yax=2, sub = "PC 1-2, 91 individuals, 711 SNPs",possub = "topleft",col=transp(col8,.6), axesell=FALSE,cstar=0, cpoint=3, grid=FALSE, cellipse = 0)
+add.scatter.eig(pca.genmaf.na$eig[1:20],nf=10,xax=1,yax=2, "bottomleft")
+s.class(pca.genmaf.na$li, gen.NA@pop,xax=1,yax=3, sub = "PC 1-3, 91 individuals, 711 SNPs",possub = "topleft",col=transp(col8,.6), axesell=FALSE,cstar=0, cpoint=3, grid=FALSE, cellipse = 0)
+s.class(pca.genmaf.na$li, gen.NA@pop,xax=1,yax=4, sub = "PC 1-4, 91 individuals, 711 SNPs",possub = "topleft",col=transp(col8,.6), axesell=FALSE,cstar=0, cpoint=3, grid=FALSE, cellipse = 0)
+s.class(pca.genmaf.na$li, gen.NA@pop,xax=1,yax=5, sub = "PC 1-5, 91 individuals, 711 SNPs",possub = "topleft",col=transp(col8,.6), axesell=FALSE,cstar=0, cpoint=3, grid=FALSE, cellipse = 0)
+```
+```{r}
+col2 <- c("#999999", "#56B4E9")
+HC_SS.maf <- gen.maf.NA[indNames(gen.maf.NA)[c(grep("HC",indNames(gen.maf.NA),value = F),grep("SS",indNames(gen.maf.NA),value = F))],,drop=T]
+pca.HCSS.genmaf.na <- dudi.pca(HC_SS.maf,cent=TRUE,scale=TRUE,scannf = FALSE,nf=10)
+par(mfrow=c(2,2))
+s.class(pca.HCSS.genmaf.na$li, HC_SS.maf@pop,xax=1,yax=2, sub = "PC 1-2",possub = "topleft",col=transp(col2,.6), axesell=FALSE,cstar=0, cpoint=3, grid=FALSE, cellipse = 0,clabel = 1.5)
+s.class(pca.HCSS.genmaf.na$li, HC_SS.maf@pop,xax=1,yax=3, sub = "PC 1-3",possub = "topleft",col=transp(col2,.6), axesell=FALSE,cstar=0, cpoint=3, grid=FALSE, cellipse = 0)
+s.class(pca.HCSS.genmaf.na$li, HC_SS.maf@pop,xax=1,yax=4, sub = "PC 1-4",possub = "topleft",col=transp(col2,.6), axesell=FALSE,cstar=0, cpoint=3, grid=FALSE, cellipse = 0)
+s.class(pca.HCSS.genmaf.na$li, HC_SS.maf@pop,xax=1,yax=5, sub = "PC 1-5",possub = "topleft",col=transp(col2,.6), axesell=FALSE,cstar=0, cpoint=3, grid=FALSE, cellipse = 0)
+```
+```{r}
+b90.fst <- pairwise.fst(gen.maf.NA, pop = gen.maf.NA@pop,res.type = "matrix")
+
+colnames(b90.fst) <- levels(b90.fst@pop)
+rownames(b90.fst) <- levels(b90.fst$Population)
+write.table(m75maf05.na.fst.mat,file="FST/m75x65maf05.na.pwfst",row.names = T,col.names = T)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
